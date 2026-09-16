@@ -47,6 +47,14 @@ export interface Department {
   isActive: boolean;
 }
 
+export interface EquipmentCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  isActive: boolean;
+}
+
 export interface Inspection {
   id: string;
   name: string;
@@ -193,6 +201,8 @@ export interface ReportSummary {
     id: string; name: string; position: string; department: string; location: string;
     recordId: string; number: number; status: RecordStatus; equipment: number;
     withProblems: number; types: EquipmentTypeKey[];
+    /** Nomes dos equipamentos do tipo "outro" (catálogo), sem repetições. */
+    others?: string[];
   }[];
   timeline: { day: string; total: number }[];
   recent: {

@@ -18,20 +18,25 @@ interface ModalProps {
 export default function Modal({ open, onClose, title, description, children, footer, size = "md" }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // onClose costuma ser uma função inline (nova a cada render); guardá-la numa ref
+  // evita re-executar o efeito a cada tecla — o que roubava o foco do campo activo.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
-    ref.current?.focus();
+    // Respeita campos com autoFocus: só foca o diálogo se o foco ainda não estiver dentro dele.
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
       previous?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

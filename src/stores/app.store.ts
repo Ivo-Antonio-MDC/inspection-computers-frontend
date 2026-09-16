@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { InspectionService, LookupService } from "@/lib/services";
-import type { Department, Inspection, Location } from "@/types";
+import type { Department, EquipmentCategory, Inspection, Location } from "@/types";
 
 const STORAGE_KEY = "inspeccao:selected";
 
@@ -11,10 +11,12 @@ interface AppState {
   inspectionId: string | null;
   locations: Location[];
   departments: Department[];
+  equipmentCategories: EquipmentCategory[];
   loaded: boolean;
   load: (force?: boolean) => Promise<void>;
   selectInspection: (id: string) => void;
   reloadLookups: () => Promise<void>;
+  addEquipmentCategory: (category: EquipmentCategory) => void;
 }
 
 /** Dados de referência partilhados: inspecção seleccionada, localizações e departamentos. */
@@ -23,15 +25,17 @@ const useAppStore = create<AppState>()((set, get) => ({
   inspectionId: null,
   locations: [],
   departments: [],
+  equipmentCategories: [],
   loaded: false,
 
   load: async (force = false) => {
     if (get().loaded && !force) return;
-    const [inspections, current, locations, departments] = await Promise.all([
+    const [inspections, current, locations, departments, equipmentCategories] = await Promise.all([
       InspectionService.list(),
       InspectionService.current(),
       LookupService.locations(),
       LookupService.departments(),
+      LookupService.equipmentCategories().catch(() => []),
     ]);
     let stored: string | null = null;
     try {
@@ -41,7 +45,7 @@ const useAppStore = create<AppState>()((set, get) => ({
     }
     const selected =
       (stored && inspections.some((i) => i.id === stored) ? stored : null) ?? current?.id ?? inspections[0]?.id ?? null;
-    set({ inspections, inspectionId: selected, locations, departments, loaded: true });
+    set({ inspections, inspectionId: selected, locations, departments, equipmentCategories, loaded: true });
   },
 
   selectInspection: (id) => {
@@ -54,13 +58,17 @@ const useAppStore = create<AppState>()((set, get) => ({
   },
 
   reloadLookups: async () => {
-    const [inspections, locations, departments] = await Promise.all([
+    const [inspections, locations, departments, equipmentCategories] = await Promise.all([
       InspectionService.list(),
       LookupService.locations(),
       LookupService.departments(),
+      LookupService.equipmentCategories(),
     ]);
-    set({ inspections, locations, departments });
+    set({ inspections, locations, departments, equipmentCategories });
   },
+
+  addEquipmentCategory: (category) =>
+    set((s) => ({ equipmentCategories: [...s.equipmentCategories, category].sort((a, b) => a.name.localeCompare(b.name, "pt")) })),
 }));
 
 export function useCurrentInspection() {

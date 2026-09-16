@@ -1,0 +1,23 @@
+# Frontend Next.js em produção.
+# Requer o backend a correr primeiro (pasta ../backend → docker compose up -d),
+# porque este serviço junta-se à rede "backend_default" para falar com a API.
+#
+# Uso:  docker compose up -d --build
+# App:  http://localhost:3000  ·  na rede local: http://<IP-deste-PC>:3000
+services:
+  web:
+    build:
+      context: .
+      args:
+        BACKEND_URL: http://api:4000 # serviço "api" do docker-compose do backend
+    image: inspeccao-frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    networks:
+      - backend
+
+networks:
+  backend:
+    name: backend_default
+    external: true

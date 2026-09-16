@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import CollaboratorFormModal from "@/components/collaborators/CollaboratorFormModal";
 import { Alert, Card, EmptyState } from "@/components/common/ui-kit";
-import { SearchInput, TextArea } from "@/components/form/fields";
+import { Input, SearchInput, TextArea } from "@/components/form/fields";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -16,12 +16,13 @@ import {
   ChevronRightIcon,
   EditIcon,
   MapPinIcon,
+  PlusIcon,
   UserIcon,
   UsersIcon,
 } from "@/components/icons";
 import Badge, { ConditionBadge, RecordStatusBadge } from "@/components/ui/Badge";
 import Button, { Spinner } from "@/components/ui/Button";
-import { ConfirmDialog } from "@/components/ui/Modal";
+import Modal, { ConfirmDialog } from "@/components/ui/Modal";
 import { useSidebar } from "@/context/providers";
 import { apiErrorDetails, apiErrorMessage } from "@/lib/api";
 import { EQUIPMENT_TYPE_HINTS, EQUIPMENT_TYPE_LABELS, MODALITY_LABELS } from "@/lib/constants";
@@ -35,13 +36,15 @@ import {
 } from "@/lib/equipment-rules";
 import { cn, recordCode } from "@/lib/format";
 import { draftFromEquipment, emptyDraft, equipmentTitle, toPayload, toRuleInput, type EquipmentDraft } from "@/lib/record-form";
-import { CollaboratorService, RecordService } from "@/lib/services";
+import { CollaboratorService, LookupService, RecordService } from "@/lib/services";
 import { useDebounce } from "@/lib/use-debounce";
 import useAppStore, { useCurrentInspection } from "@/stores/app.store";
 import useAuthStore from "@/stores/auth.store";
-import type { Collaborator, InspectionRecord, RecordRef } from "@/types";
+import type { Collaborator, EquipmentCategory, InspectionRecord, RecordRef } from "@/types";
+import CatalogIconPicker from "./CatalogIconPicker";
+import { suggestIcon, type CatalogIconKey } from "./equipment-icons";
 import EquipmentFormSection from "./EquipmentFormSection";
-import EquipmentTypeIcon from "./EquipmentTypeIcon";
+import EquipmentTypeIcon, { catalogIconKey } from "./EquipmentTypeIcon";
 
 const STEPS = [
   { title: "Identificação", desc: "Dados do colaborador" },
@@ -60,7 +63,24 @@ function hasUserData(d: EquipmentDraft) {
 }
 
 function sortDrafts(list: EquipmentDraft[]) {
-  return [...list].sort((a, b) => EQUIPMENT_TYPE_ORDER.indexOf(a.type) - EQUIPMENT_TYPE_ORDER.indexOf(b.type));
+  return [...list].sort(
+    (a, b) =>
+      EQUIPMENT_TYPE_ORDER.indexOf(a.type) - EQUIPMENT_TYPE_ORDER.indexOf(b.type) ||
+      (a.type === "outro" ? a.otherDescription.localeCompare(b.otherDescription, "pt") : 0),
+  );
+}
+
+const norm = (v: string) => v.trim().toLowerCase();
+
+/** Cartão seleccionável no passo "Equipamentos" — tipo fixo ou equipamento do catálogo. */
+interface EquipmentOption {
+  id: string;
+  type: EquipmentTypeKey;
+  label: string;
+  hint: string;
+  /** Nome do catálogo (equipamentos do tipo "outro" com esta descrição). */
+  category?: string;
+  icon?: CatalogIconKey;
 }
 
 export default function RecordWizard({ record, initialCollaboratorId }: { record?: InspectionRecord; initialCollaboratorId?: string | null }) {
@@ -128,15 +148,28 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
   }, []);
 
   // ── Equipamentos ───────────────────────────────────────────────────────────
-  const counts = useMemo(() => {
-    const c = Object.fromEntries(EQUIPMENT_TYPE_ORDER.map((t) => [t, 0])) as Record<EquipmentTypeKey, number>;
-    drafts.forEach((d) => c[d.type]++);
-    return c;
-  }, [drafts]);
+  const equipmentCategories = useAppStore((s) => s.equipmentCategories);
+  const addEquipmentCategory = useAppStore((s) => s.addEquipmentCategory);
+  const [categoryModal, setCategoryModal] = useState(false);
 
-  const addType = (type: EquipmentTypeKey) => {
-    if (counts[type] >= MAX_PER_TYPE) return;
-    setDrafts((ds) => sortDrafts([...ds, emptyDraft(type)]));
+  const options = useMemo<EquipmentOption[]>(() => {
+    const fixed = EQUIPMENT_TYPE_ORDER.filter((t) => t !== "outro").map((t) => ({ id: t, type: t, label: EQUIPMENT_TYPE_LABELS[t], hint: EQUIPMENT_TYPE_HINTS[t] }));
+    const catalog = equipmentCategories.map((c) => ({ id: `cat-${c.id}`, type: "outro" as const, label: c.name, hint: c.description || "Catálogo de equipamentos", category: norm(c.name), icon: catalogIconKey(c.icon, c.name) }));
+    return [...fixed, ...catalog, { id: "outro", type: "outro", label: EQUIPMENT_TYPE_LABELS.outro, hint: EQUIPMENT_TYPE_HINTS.outro, icon: "outro" }];
+  }, [equipmentCategories]);
+
+  const draftsFor = useCallback(
+    (o: EquipmentOption) => {
+      if (o.type !== "outro") return drafts.filter((d) => d.type === o.type);
+      const names = new Set(options.flatMap((x) => (x.category ? [x.category] : [])));
+      return drafts.filter((d) => d.type === "outro" && (o.category ? norm(d.otherDescription) === o.category : !names.has(norm(d.otherDescription))));
+    },
+    [drafts, options],
+  );
+
+  const addOption = (o: EquipmentOption) => {
+    if (draftsFor(o).length >= MAX_PER_TYPE) return;
+    setDrafts((ds) => sortDrafts([...ds, { ...emptyDraft(o.type), otherDescription: o.category ? o.label : "" }]));
     setServerValidation(null);
     setDirty(true);
   };
@@ -375,14 +408,18 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
 
       {/* Passo 2 — Equipamentos em posse */}
       {step === 1 && (
-        <Card title="Equipamentos em posse do colaborador" desc="Seleccione os equipamentos. O formulário apresentará apenas as secções correspondentes.">
+        <Card
+          title="Equipamentos em posse do colaborador"
+          desc="Seleccione os equipamentos. O formulário apresentará apenas as secções correspondentes."
+        >
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {EQUIPMENT_TYPE_ORDER.map((type) => {
-              const count = counts[type];
+            {options.map((o) => {
+              const items = draftsFor(o);
+              const count = items.length;
               const selected = count > 0;
               return (
                 <div
-                  key={type}
+                  key={o.id}
                   className={cn(
                     "relative flex flex-col rounded-xl border p-4 transition",
                     selected ? "border-brand-500 bg-brand-25 ring-1 ring-brand-500 dark:bg-brand-500/10" : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700",
@@ -392,14 +429,14 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
                     type="button"
                     className="flex items-start gap-3 text-left"
                     aria-pressed={selected}
-                    onClick={() => (selected ? requestRemove(drafts.filter((d) => d.type === type).map((d) => d.key)) : addType(type))}
+                    onClick={() => (selected ? requestRemove(items.map((d) => d.key)) : addOption(o))}
                   >
                     <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", selected ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300")}>
-                      <EquipmentTypeIcon type={type} size={22} />
+                      <EquipmentTypeIcon type={o.type} icon={o.icon} size={22} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-gray-800 dark:text-white/90">{EQUIPMENT_TYPE_LABELS[type]}</span>
-                      <span className="block text-xs text-gray-500 dark:text-gray-400">{EQUIPMENT_TYPE_HINTS[type]}</span>
+                      <span className="block truncate font-semibold text-gray-800 dark:text-white/90">{o.label}</span>
+                      <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{o.hint}</span>
                     </span>
                     <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-md border", selected ? "border-brand-500 bg-brand-500 text-white" : "border-gray-300 dark:border-gray-700")}>
                       {selected && <CheckIcon size={14} strokeWidth={3} />}
@@ -411,9 +448,9 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => requestRemove([drafts.filter((d) => d.type === type).at(-1)!.key])}
+                          onClick={() => requestRemove([items.at(-1)!.key])}
                           className="flex size-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                          aria-label={`Remover um ${EQUIPMENT_TYPE_LABELS[type]}`}
+                          aria-label={`Remover um ${o.label}`}
                         >
                           −
                         </button>
@@ -423,9 +460,9 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
                         <button
                           type="button"
                           disabled={count >= MAX_PER_TYPE}
-                          onClick={() => addType(type)}
+                          onClick={() => addOption(o)}
                           className="flex size-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                          aria-label={`Adicionar outro ${EQUIPMENT_TYPE_LABELS[type]}`}
+                          aria-label={`Adicionar outro ${o.label}`}
                         >
                           +
                         </button>
@@ -435,13 +472,28 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
                 </div>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setCategoryModal(true)}
+              className="flex min-h-[4.75rem] items-center gap-3 rounded-xl border border-dashed border-gray-300 p-4 text-left text-gray-600 transition hover:border-brand-400 hover:bg-brand-25 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-brand-500/5"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-dashed border-current">
+                <PlusIcon size={22} />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-semibold">Adicionar equipamento</span>
+                <span className="block text-xs text-gray-500 dark:text-gray-400">Não está na lista? Crie um novo</span>
+              </span>
+            </button>
           </div>
           {drafts.length > 0 && (
             <p className="mt-5 text-sm text-gray-600 dark:text-gray-400">
               <span className="font-semibold text-gray-800 dark:text-white">{drafts.length}</span>{" "}
               {drafts.length === 1 ? "equipamento seleccionado" : "equipamentos seleccionados"}:{" "}
-              {EQUIPMENT_TYPE_ORDER.filter((t) => counts[t] > 0)
-                .map((t) => `${counts[t]}× ${EQUIPMENT_TYPE_LABELS[t]}`)
+              {options
+                .map((o) => [o, draftsFor(o).length] as const)
+                .filter(([, n]) => n > 0)
+                .map(([o, n]) => `${n}× ${o.label}`)
                 .join(" · ")}
             </p>
           )}
@@ -463,8 +515,8 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
                     onClick={() => focusItem(d.key)}
                     className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                   >
-                    <EquipmentTypeIcon type={d.type} size={16} />
-                    {i + 1}. {EQUIPMENT_TYPE_LABELS[d.type]}
+                    <EquipmentTypeIcon type={d.type} description={d.otherDescription} size={16} />
+                    {i + 1}. {d.type === "outro" && d.otherDescription.trim() ? d.otherDescription.trim() : EQUIPMENT_TYPE_LABELS[d.type]}
                     <span className={cn("size-2 rounded-full", ok ? "bg-success-500" : showErrors && errs ? "bg-error-500" : "bg-gray-300 dark:bg-gray-600")} aria-label={ok ? "completo" : "incompleto"} />
                   </button>
                 );
@@ -543,7 +595,7 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
                       return (
                         <li key={d.key} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
                           <div className="flex min-w-0 flex-1 gap-3">
-                            <EquipmentTypeIcon type={d.type} className="mt-0.5 shrink-0 text-gray-500" />
+                            <EquipmentTypeIcon type={d.type} description={d.otherDescription} className="mt-0.5 shrink-0 text-gray-500" />
                             <div className="min-w-0">
                               <p className="font-medium text-gray-800 dark:text-white/90">
                                 {i + 1}. {equipmentTitle(d, EQUIPMENT_TYPE_LABELS[d.type])}
@@ -586,7 +638,7 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
                         <tr key={d.key} className="border-t border-gray-100 dark:border-gray-800">
                           <td className="px-5 py-3">
                             <span className="flex items-center gap-2 font-medium text-gray-800 dark:text-white/90">
-                              <EquipmentTypeIcon type={d.type} size={18} className="text-gray-500" />
+                              <EquipmentTypeIcon type={d.type} description={d.otherDescription} size={18} className="text-gray-500" />
                               {equipmentTitle(d, EQUIPMENT_TYPE_LABELS[d.type])}
                             </span>
                           </td>
@@ -697,6 +749,19 @@ export default function RecordWizard({ record, initialCollaboratorId }: { record
         danger
         onConfirm={() => pendingRemoval && removeNow(pendingRemoval.keys)}
         onClose={() => setPendingRemoval(null)}
+      />
+
+      <EquipmentCategoryModal
+        open={categoryModal}
+        onClose={() => setCategoryModal(false)}
+        onCreated={(c) => {
+          addEquipmentCategory(c);
+          setCategoryModal(false);
+          setDrafts((ds) => sortDrafts([...ds, { ...emptyDraft("outro"), otherDescription: c.name }]));
+          setServerValidation(null);
+          setDirty(true);
+          toast.success(`${c.name} adicionado ao catálogo`);
+        }}
       />
 
       <CollaboratorFormModal
@@ -861,5 +926,58 @@ function IdentificationStep({
         )}
       </div>
     </Card>
+  );
+}
+
+function EquipmentCategoryModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (c: EquipmentCategory) => void }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [pickedIcon, setPickedIcon] = useState<CatalogIconKey | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const icon = pickedIcon ?? suggestIcon(name);
+
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setDescription("");
+    setPickedIcon(null);
+    setError(null);
+  }, [open]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim().length < 2) return setError("Indique o nome do equipamento");
+    setSaving(true);
+    setError(null);
+    try {
+      onCreated(await LookupService.createEquipmentCategory({ name: name.trim(), description: description.trim() || null, icon }));
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Adicionar equipamento"
+      description="Fica disponível no catálogo para todos os formulários e já é seleccionado neste."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" form="equipment-category-form" loading={saving}>Adicionar</Button>
+        </>
+      }
+    >
+      <form id="equipment-category-form" onSubmit={submit} className="space-y-4" noValidate>
+        {error && <Alert tone="error">{error}</Alert>}
+        <Input label="Nome do equipamento" required value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus placeholder="Ex.: Impressora, Tablet, Projector" />
+        <Input label="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={120} placeholder="Ex.: Impressora ou multifunções" hint="Opcional — aparece por baixo do nome no cartão." />
+        <CatalogIconPicker value={icon} onChange={setPickedIcon} />
+      </form>
+    </Modal>
   );
 }

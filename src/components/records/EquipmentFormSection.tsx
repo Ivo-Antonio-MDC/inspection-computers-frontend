@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useId, type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import {
   BATTERY_OPTIONS,
   CONDITION_OPTIONS,
@@ -22,7 +22,7 @@ import {
 } from "@/lib/equipment-rules";
 import { cn } from "@/lib/format";
 import { BRAND_SUGGESTIONS, PLACEHOLDERS, equipmentTitle, toRuleInput, type EquipmentDraft } from "@/lib/record-form";
-import { Checkbox, ChoiceGroup, FieldMessage, Input, Select, TextArea } from "../form/fields";
+import { AutocompleteInput, Checkbox, ChoiceGroup, FieldMessage, Input, Select, TextArea } from "../form/fields";
 import { AlertIcon, CheckCircleIcon, ChevronDownIcon, TrashIcon } from "../icons";
 import EquipmentTypeIcon from "./EquipmentTypeIcon";
 
@@ -68,7 +68,6 @@ function EquipmentFormSection({
   const required = new Set(requiredFieldsFor(toRuleInput(draft)));
   const err = (f: EquipmentField) => (showErrors ? validation?.errors[f] : undefined);
   const set = (patch: Partial<EquipmentDraft>) => onChange(draft.key, patch);
-  const listId = useId();
 
   const text = (field: keyof EquipmentDraft & EquipmentField, extra?: Partial<React.ComponentProps<typeof Input>>) => (
     <Input
@@ -81,6 +80,18 @@ function EquipmentFormSection({
     />
   );
 
+  const suggest = (field: "brand" | "operatingSystem", suggestions: readonly string[], placeholder: string) => (
+    <AutocompleteInput
+      label={FIELD_LABELS[field]}
+      required={required.has(field)}
+      value={draft[field]}
+      onValueChange={(v) => set({ [field]: v })}
+      suggestions={suggestions}
+      placeholder={placeholder}
+      error={err(field)}
+    />
+  );
+
   const label = EQUIPMENT_TYPE_LABELS[draft.type];
   const title = equipmentTitle(draft, typeCount > 1 ? `${label} ${typeIndex + 1}` : label);
   const missing = validation?.missing.length ?? 0;
@@ -89,11 +100,11 @@ function EquipmentFormSection({
   const showConditionNotes = !!draft.condition && draft.condition !== "bom";
 
   return (
-    <section id={`equipamento-${draft.key}`} className="scroll-mt-28 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+    <section id={`equipamento-${draft.key}`} className="scroll-mt-28 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <header className="flex items-center gap-3 px-4 py-3 sm:px-5">
         <button type="button" onClick={() => onToggle(draft.key)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-expanded={!collapsed}>
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400">
-            <EquipmentTypeIcon type={draft.type} />
+            <EquipmentTypeIcon type={draft.type} description={draft.otherDescription} />
           </span>
           <span className="min-w-0">
             <span className="block truncate font-semibold text-gray-800 dark:text-white/90">
@@ -133,12 +144,7 @@ function EquipmentFormSection({
           <Group title="Identificação">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {has("otherDescription") && text("otherDescription", { placeholder: "Ex.: Impressora multifunções", className: "sm:col-span-2 lg:col-span-3" })}
-              {text("brand", { list: `${listId}-brands`, placeholder: PLACEHOLDERS[draft.type].brand, autoComplete: "off" })}
-              <datalist id={`${listId}-brands`}>
-                {(BRAND_SUGGESTIONS[draft.type] ?? []).map((b) => (
-                  <option key={b} value={b} />
-                ))}
-              </datalist>
+              {suggest("brand", BRAND_SUGGESTIONS[draft.type] ?? [], PLACEHOLDERS[draft.type].brand)}
               {text("model", { placeholder: PLACEHOLDERS[draft.type].model })}
               {has("screenSizeInches") &&
                 text("screenSizeInches", { inputMode: "decimal", placeholder: "Ex.: 24" })}
@@ -177,12 +183,7 @@ function EquipmentFormSection({
                   error={err("storageType")}
                 />
                 {text("storageCapacityGb", { inputMode: "numeric", placeholder: "Ex.: 512", hint: "Em GB (1 TB = 1000 GB)" })}
-                {text("operatingSystem", { list: `${listId}-os`, placeholder: "Ex.: Windows 11 Pro", autoComplete: "off" })}
-                <datalist id={`${listId}-os`}>
-                  {OS_SUGGESTIONS.map((o) => (
-                    <option key={o} value={o} />
-                  ))}
-                </datalist>
+                {suggest("operatingSystem", OS_SUGGESTIONS, "Ex.: Windows 11 Pro")}
                 {text("hostname", { placeholder: "Quando aplicável", spellCheck: false, autoComplete: "off" })}
                 {text("ipAddress", { placeholder: "Quando aplicável · ex.: 192.168.1.25", inputMode: "decimal", autoComplete: "off" })}
               </div>

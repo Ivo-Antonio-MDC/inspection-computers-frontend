@@ -76,11 +76,6 @@ export default function ReportsPage() {
         !error && <div className="skeleton h-96 rounded-2xl" />
       ) : (
         <div className="space-y-6">
-          <Alert tone="info">
-            O Excel inclui as folhas <strong>Resumo</strong>, <strong>Equipamentos</strong> (uma linha por equipamento), <strong>Por localização</strong>, <strong>Por departamento</strong>,{" "}
-            <strong>Por tipo e estado</strong>, <strong>Por utilizador</strong> e <strong>Problemas</strong>. Para exportar uma selecção, use os filtros em{" "}
-            <Link href="/equipamentos" className="font-semibold underline">Equipamentos</Link>.
-          </Alert>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Total de equipamentos inspeccionados" value={eq!.total} icon={<LaptopIcon />} />
@@ -267,8 +262,13 @@ export default function ReportsPage() {
                     <td>
                       <span className="flex items-center gap-1.5 text-gray-500">
                         {n(c.equipment)}
-                        {c.types.map((t) => (
-                          <span key={t} title={EQUIPMENT_TYPE_LABELS[t]}><EquipmentTypeIcon type={t} size={16} /></span>
+                        {c.types
+                          .filter((t) => t !== "outro" || !c.others?.length)
+                          .map((t) => (
+                            <span key={t} title={EQUIPMENT_TYPE_LABELS[t]}><EquipmentTypeIcon type={t} size={16} /></span>
+                          ))}
+                        {c.others?.map((name) => (
+                          <span key={`outro-${name}`} title={name}><EquipmentTypeIcon type="outro" description={name} size={16} /></span>
                         ))}
                       </span>
                     </td>

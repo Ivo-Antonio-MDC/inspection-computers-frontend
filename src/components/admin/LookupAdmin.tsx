@@ -5,6 +5,9 @@ import toast from "react-hot-toast";
 import { Alert, Card, DataTable, EmptyState, PageHeader } from "@/components/common/ui-kit";
 import { Checkbox, Input, Select } from "@/components/form/fields";
 import { EditIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import CatalogIconPicker from "@/components/records/CatalogIconPicker";
+import { CATALOG_ICONS, suggestIcon, type CatalogIconKey } from "@/components/records/equipment-icons";
+import { catalogIconKey } from "@/components/records/EquipmentTypeIcon";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal, { ConfirmDialog } from "@/components/ui/Modal";
@@ -19,6 +22,7 @@ interface Row {
   name: string;
   isActive: boolean;
   modality?: Modality;
+  icon?: string | null;
 }
 
 interface Props {
@@ -26,6 +30,9 @@ interface Props {
   singular: string;
   description: string;
   withModality?: boolean;
+  /** Mostra e permite escolher o ícone (catálogo de equipamentos). */
+  withIcon?: boolean;
+  deleteHint?: string;
   list: (includeInactive: boolean) => Promise<Row[]>;
   create: (data: Partial<Row>) => Promise<unknown>;
   update: (id: string, data: Partial<Row>) => Promise<unknown>;
@@ -33,12 +40,12 @@ interface Props {
 }
 
 /** Gestão de listas de referência (localizações e departamentos). */
-export default function LookupAdmin({ title, singular, description, withModality, list, create, update, remove }: Props) {
+export default function LookupAdmin({ title, singular, description, withModality, withIcon, deleteHint, list, create, update, remove }: Props) {
   const isAdmin = useAuthStore((s) => s.user?.role === "admin");
   const reloadLookups = useAppStore((s) => s.reloadLookups);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [modal, setModal] = useState<{ open: boolean; edit?: Row }>({ open: false });
-  const [form, setForm] = useState<{ name: string; modality: Modality; isActive: boolean }>({ name: "", modality: "remota", isActive: true });
+  const [form, setForm] = useState<{ name: string; modality: Modality; isActive: boolean; icon: CatalogIconKey | null }>({ name: "", modality: "remota", isActive: true, icon: null });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<Row | null>(null);
@@ -50,7 +57,7 @@ export default function LookupAdmin({ title, singular, description, withModality
 
   const open = (edit?: Row) => {
     setError(null);
-    setForm({ name: edit?.name ?? "", modality: edit?.modality ?? "remota", isActive: edit?.isActive ?? true });
+    setForm({ name: edit?.name ?? "", modality: edit?.modality ?? "remota", isActive: edit?.isActive ?? true, icon: edit ? catalogIconKey(edit.icon, edit.name) : null });
     setModal({ open: true, edit });
   };
 
@@ -59,7 +66,7 @@ export default function LookupAdmin({ title, singular, description, withModality
     if (form.name.trim().length < 2) return setError("Indique o nome");
     setSaving(true);
     setError(null);
-    const payload: Partial<Row> = { name: form.name.trim(), isActive: form.isActive, ...(withModality ? { modality: form.modality } : {}) };
+    const payload: Partial<Row> = { name: form.name.trim(), isActive: form.isActive, ...(withModality ? { modality: form.modality } : {}), ...(withIcon ? { icon: form.icon ?? suggestIcon(form.name) } : {}) };
     try {
       if (modal.edit) await update(modal.edit.id, payload);
       else await create(payload);
@@ -104,6 +111,7 @@ export default function LookupAdmin({ title, singular, description, withModality
           <DataTable className="[&_table]:min-w-[480px]">
             <thead>
               <tr>
+                {withIcon && <th className="w-12" />}
                 <th>Nome</th>
                 {withModality && <th>Modalidade</th>}
                 <th>Estado</th>
@@ -113,6 +121,18 @@ export default function LookupAdmin({ title, singular, description, withModality
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
+                  {withIcon && (
+                    <td>
+                      {(() => {
+                        const Icon = CATALOG_ICONS[catalogIconKey(r.icon, r.name)].Icon;
+                        return (
+                          <span className="flex size-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300">
+                            <Icon size={18} />
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
                   <td className="font-medium text-gray-800 dark:text-white/90">{r.name}</td>
                   {withModality && <td className="text-gray-600 dark:text-gray-400">{r.modality ? MODALITY_LABELS[r.modality] : "—"}</td>}
                   <td>{r.isActive ? <Badge color="success">Activo</Badge> : <Badge color="light">Inactivo</Badge>}</td>
@@ -139,7 +159,7 @@ export default function LookupAdmin({ title, singular, description, withModality
         open={modal.open}
         onClose={() => setModal({ open: false })}
         title={modal.edit ? `Editar ${singular.toLowerCase()}` : `Adicionar ${singular.toLowerCase()}`}
-        size="sm"
+        size={withIcon ? "md" : "sm"}
         footer={
           <>
             <Button variant="outline" onClick={() => setModal({ open: false })}>Cancelar</Button>
@@ -150,6 +170,7 @@ export default function LookupAdmin({ title, singular, description, withModality
         <form id="lookup-form" onSubmit={save} className="space-y-4" noValidate>
           {error && <Alert tone="error">{error}</Alert>}
           <Input label="Nome" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+          {withIcon && <CatalogIconPicker value={form.icon ?? suggestIcon(form.name)} onChange={(icon) => setForm({ ...form, icon })} />}
           {withModality && (
             <Select label="Modalidade da inspecção" value={form.modality} onChange={(e) => setForm({ ...form, modality: e.target.value as Modality })} options={Object.entries(MODALITY_LABELS).map(([value, label]) => ({ value, label }))} />
           )}
@@ -160,7 +181,7 @@ export default function LookupAdmin({ title, singular, description, withModality
       <ConfirmDialog
         open={!!toDelete}
         title={`Eliminar ${singular.toLowerCase()}`}
-        message={<>Eliminar <strong>{toDelete?.name}</strong>? Se existirem colaboradores associados, desactive-o em vez de eliminar.</>}
+        message={<>Eliminar <strong>{toDelete?.name}</strong>? {deleteHint ?? "Se existirem colaboradores associados, desactive-o em vez de eliminar."}</>}
         confirmLabel="Eliminar"
         danger
         onConfirm={doDelete}
