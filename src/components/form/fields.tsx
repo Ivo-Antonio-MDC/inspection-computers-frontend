@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/format";
 import { CheckIcon, ChevronDownIcon, SearchIcon } from "../icons";
 
@@ -221,6 +221,153 @@ export function SearchInput({
         placeholder={placeholder}
         className={cn(base, normal, "h-11 py-2.5 pl-10")}
       />
+    </div>
+  );
+}
+
+/**
+ * Campo de texto com sugestões (substitui o <datalist> nativo, cuja lista é
+ * desenhada pelo browser e não segue o tema da aplicação). Aceita texto livre.
+ */
+export function AutocompleteInput({
+  label,
+  required,
+  error,
+  hint,
+  className,
+  id,
+  value,
+  onValueChange,
+  suggestions,
+  placeholder,
+  disabled,
+}: FieldProps & {
+  id?: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  suggestions: readonly string[];
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const auto = useId();
+  const inputId = id ?? auto;
+  const listId = `${inputId}-list`;
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const query = value.trim().toLowerCase();
+  const exact = suggestions.some((s) => s.toLowerCase() === query);
+  // Com um valor já escolhido mostra a lista toda, para ser fácil trocar.
+  const items = !query || exact ? suggestions : suggestions.filter((s) => s.toLowerCase().includes(query));
+  const show = open && !disabled && items.length > 0;
+
+  useEffect(() => {
+    if (!show || active < 0) return;
+    (listRef.current?.children[active] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
+  }, [active, show]);
+
+  const pick = (s: string) => {
+    onValueChange(s);
+    setOpen(false);
+    setActive(-1);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setActive((i) => (items.length ? (i + 1) % items.length : -1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setOpen(true);
+      setActive((i) => (items.length ? (i <= 0 ? items.length - 1 : i - 1) : -1));
+    } else if (e.key === "Enter" && show && active >= 0) {
+      e.preventDefault();
+      pick(items[active]);
+    } else if (e.key === "Escape" && show) {
+      e.stopPropagation();
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div className={className}>
+      {label && <Label htmlFor={inputId} required={required}>{label}</Label>}
+      <div className="relative">
+        <input
+          id={inputId}
+          type="text"
+          role="combobox"
+          aria-expanded={show}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={show && active >= 0 ? `${listId}-${active}` : undefined}
+          aria-invalid={!!error}
+          aria-describedby={error || hint ? `${inputId}-msg` : undefined}
+          autoComplete="off"
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+          onChange={(e) => {
+            onValueChange(e.target.value);
+            setOpen(true);
+            setActive(-1);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={onKeyDown}
+          className={cn(base, "h-11 py-2.5 pr-10", error ? invalid : normal)}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Mostrar sugestões"
+          disabled={disabled}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            document.getElementById(inputId)?.focus();
+            setOpen((o) => !o);
+          }}
+          className="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 disabled:pointer-events-none dark:hover:bg-white/5"
+        >
+          <ChevronDownIcon size={18} className={cn("transition-transform", show && "rotate-180")} />
+        </button>
+        {show && (
+          <ul
+            ref={listRef}
+            id={listId}
+            role="listbox"
+            className="custom-scrollbar absolute inset-x-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white p-1 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
+          >
+            {items.map((s, i) => {
+              const selected = s.toLowerCase() === query;
+              return (
+                <li
+                  key={s}
+                  id={`${listId}-${i}`}
+                  role="option"
+                  aria-selected={selected}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pick(s);
+                  }}
+                  onMouseEnter={() => setActive(i)}
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
+                    i === active && "bg-gray-100 dark:bg-white/5",
+                    selected && "font-medium text-brand-600 dark:text-brand-400",
+                  )}
+                >
+                  {s}
+                  {selected && <CheckIcon size={16} strokeWidth={2.2} />}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      <FieldMessage id={`${inputId}-msg`} error={error} hint={hint} />
     </div>
   );
 }

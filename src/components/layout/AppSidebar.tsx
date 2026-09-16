@@ -54,6 +54,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
           { name: "Inspecções", path: "/administracao/inspeccoes" },
           { name: "Localizações", path: "/administracao/localizacoes" },
           { name: "Departamentos", path: "/administracao/departamentos" },
+          { name: "Catálogo de equipamentos", path: "/administracao/equipamentos" },
           { name: "Equipa de TI", path: "/administracao/utilizadores", roles: ["admin"] },
           { name: "Auditoria", path: "/administracao/auditoria", roles: ["admin"] },
         ],

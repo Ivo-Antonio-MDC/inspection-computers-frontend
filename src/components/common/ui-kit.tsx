@@ -255,7 +255,3 @@ export function DataTable({ children, className }: { children: ReactNode; classN
     </div>
   );
 }
-
-export function FilterBar({ children }: { children: ReactNode }) {
-  return <div className="grid gap-3 border-b border-gray-100 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap xl:items-end dark:border-gray-800 [&>*]:xl:min-w-44 [&>*]:xl:flex-1">{children}</div>;
-}

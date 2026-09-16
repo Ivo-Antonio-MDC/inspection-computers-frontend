@@ -39,7 +39,7 @@ export default function EquipmentDetails({ equipment, index }: { equipment: Equi
     <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <header className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400">
-          <EquipmentTypeIcon type={e.type} />
+          <EquipmentTypeIcon type={e.type} description={e.otherDescription} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-gray-800 dark:text-white/90">

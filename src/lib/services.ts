@@ -5,6 +5,7 @@ import type {
   AuthUser,
   Collaborator,
   Department,
+  EquipmentCategory,
   EquipmentRow,
   Inspection,
   InspectionRecord,
@@ -47,6 +48,13 @@ export const LookupService = {
   updateDepartment: (id: string, data: Partial<Department>) =>
     api.patch<Department>(`/departments/${id}`, data).then((r) => r.data),
   deleteDepartment: (id: string) => api.delete(`/departments/${id}`),
+  equipmentCategories: (includeInactive = false) =>
+    api.get<EquipmentCategory[]>("/equipment-categories", q({ includeInactive })).then((r) => r.data),
+  createEquipmentCategory: (data: Partial<EquipmentCategory>) =>
+    api.post<EquipmentCategory>("/equipment-categories", data).then((r) => r.data),
+  updateEquipmentCategory: (id: string, data: Partial<EquipmentCategory>) =>
+    api.patch<EquipmentCategory>(`/equipment-categories/${id}`, data).then((r) => r.data),
+  deleteEquipmentCategory: (id: string) => api.delete(`/equipment-categories/${id}`),
 };
 
 export const InspectionService = {
@@ -55,6 +63,7 @@ export const InspectionService = {
   create: (data: Partial<Inspection>) => api.post<Inspection>("/inspections", data).then((r) => r.data),
   update: (id: string, data: Partial<Inspection>) =>
     api.patch<Inspection>(`/inspections/${id}`, data).then((r) => r.data),
+  remove: (id: string) => api.delete(`/inspections/${id}`),
 };
 
 export interface CollaboratorInput {
@@ -114,6 +123,7 @@ export const UserService = {
   update: (id: string, data: Partial<Pick<TeamUser, "name" | "email" | "role" | "isActive">>) =>
     api.patch<TeamUser>(`/users/${id}`, data).then((r) => r.data),
   resetPassword: (id: string, password: string) => api.post(`/users/${id}/reset-password`, { password }),
+  remove: (id: string) => api.delete(`/users/${id}`),
 };
 
 export const AuditService = {

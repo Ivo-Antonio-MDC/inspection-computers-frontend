@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import CollaboratorFormModal from "@/components/collaborators/CollaboratorFormModal";
-import { Alert, Card, DataTable, EmptyState, FilterBar, PageHeader, Pagination, TableSkeleton } from "@/components/common/ui-kit";
-import { SearchInput, Select } from "@/components/form/fields";
+import { FilterToolbar } from "@/components/common/FilterToolbar";
+import { Alert, Card, DataTable, EmptyState, PageHeader, Pagination, TableSkeleton } from "@/components/common/ui-kit";
 import { EditIcon, PlusIcon, TrashIcon, UsersIcon } from "@/components/icons";
 import Badge, { RecordStatusBadge } from "@/components/ui/Badge";
 import Button, { ButtonLink } from "@/components/ui/Button";
@@ -80,23 +80,17 @@ function CollaboratorsList() {
       />
 
       <Card bodyClassName="p-0 sm:p-0">
-        <FilterBar>
-          <SearchInput value={search} onChange={setSearch} placeholder="Pesquisar por nome ou cargo…" />
-          <Select value={filters.departmentId} onChange={(e) => update({ departmentId: e.target.value })} placeholder="Todos os departamentos" options={departments.map((d) => ({ value: d.id, label: d.name }))} aria-label="Departamento" />
-          <Select value={filters.locationId} onChange={(e) => update({ locationId: e.target.value })} placeholder="Todas as localizações" options={locations.map((l) => ({ value: l.id, label: l.name }))} aria-label="Localização" />
-          <Select
-            value={filters.recordStatus}
-            onChange={(e) => update({ recordStatus: e.target.value })}
-            placeholder="Formulário: todos"
-            options={[{ value: "sem_registo", label: "Ainda não inspeccionado" }, ...Object.entries(RECORD_STATUS_LABELS).map(([value, label]) => ({ value, label }))]}
-            aria-label="Estado do formulário"
-          />
-          {activeCount > 0 && (
-            <Button variant="ghost" onClick={() => { setSearch(""); reset(); }}>
-              Limpar filtros ({activeCount})
-            </Button>
-          )}
-        </FilterBar>
+        <FilterToolbar
+          search={{ value: search, onChange: setSearch, placeholder: "Pesquisar por nome ou cargo…" }}
+          filters={[
+            { key: "departmentId", label: "Departamento", options: departments.map((d) => ({ value: d.id, label: d.name })) },
+            { key: "locationId", label: "Localização", allLabel: "Todas", options: locations.map((l) => ({ value: l.id, label: l.name })) },
+            { key: "recordStatus", label: "Estado do formulário", options: [{ value: "sem_registo", label: "Ainda não inspeccionado" }, ...Object.entries(RECORD_STATUS_LABELS).map(([value, label]) => ({ value, label }))] },
+          ]}
+          values={filters}
+          onChange={update}
+          onReset={() => { setSearch(""); reset(); }}
+        />
 
         {error ? (
           <div className="p-5"><Alert tone="error">{error}</Alert></div>

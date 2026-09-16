@@ -1,0 +1,32 @@
+# ─── Dependências ─────────────────────────────────────────────────────────────
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+# ─── Build ────────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS build
+WORKDIR /app
+# Endereço da API usado pelo rewrite /api/v1/* — fica gravado no build do Next.js.
+# Na rede do docker compose do backend, a API é acessível como http://api:4000.
+ARG BACKEND_URL=http://api:4000
+ENV BACKEND_URL=$BACKEND_URL \
+    NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+# ─── Produção ─────────────────────────────────────────────────────────────────
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/api/v1/health || exit 1
+CMD ["node", "server.js"]

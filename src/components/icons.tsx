@@ -78,11 +78,125 @@ export const HeadphonesIcon = (p: IconProps) => (
     <rect x="17" y="14" width="4" height="6" rx="1.5" />
   </Icon>
 );
-export const DeviceIcon = (p: IconProps) => (
+export const PrinterIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M6 9V4.5h12V9" />
     <rect x="3" y="9" width="18" height="8" rx="1.5" />
     <path d="M7 17v3h10v-3M17 12.5h.01" />
+  </Icon>
+);
+export const TabletIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4.5" y="2.5" width="15" height="19" rx="2" />
+    <path d="M11 18.5h2" />
+  </Icon>
+);
+export const PhoneIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="7" y="2.5" width="10" height="19" rx="2" />
+    <path d="M11 18.5h2" />
+  </Icon>
+);
+export const ScannerIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="11" width="18" height="8" rx="1.5" />
+    <path d="M4 11 18 5M7 15h6M17 15h.01" />
+  </Icon>
+);
+export const ProjectorIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.5" y="8" width="19" height="9" rx="2" />
+    <circle cx="16" cy="12.5" r="2.5" />
+    <path d="M6 12.5h4M5 17v2M19 17v2" />
+  </Icon>
+);
+export const WebcamIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="10" r="7" />
+    <circle cx="12" cy="10" r="2.5" />
+    <path d="M8 21h8M12 17v4" />
+  </Icon>
+);
+export const SpeakerIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="5.5" y="2.5" width="13" height="19" rx="2" />
+    <circle cx="12" cy="14.5" r="3" />
+    <path d="M12 7h.01" />
+  </Icon>
+);
+export const MicrophoneIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="9" y="2.5" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6" />
+  </Icon>
+);
+export const RouterIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.5" y="13" width="19" height="7" rx="1.5" />
+    <path d="M6.5 16.5h.01M10 16.5h.01M17 13V8M13.5 6.5a5 5 0 0 1 7 0" />
+  </Icon>
+);
+export const ServerIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="3.5" width="18" height="7" rx="1.5" />
+    <rect x="3" y="13.5" width="18" height="7" rx="1.5" />
+    <path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" />
+  </Icon>
+);
+export const HardDriveIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5.5 4h13l3 9H2.5z" />
+    <rect x="2.5" y="13" width="19" height="7" rx="1.5" />
+    <path d="M17 16.5h.01M6 16.5h6" />
+  </Icon>
+);
+export const UsbIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="7" y="9" width="10" height="12.5" rx="2" />
+    <path d="M9 9V2.5h6V9M11 5h.01M13 5h.01" />
+  </Icon>
+);
+export const BatteryIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.5" y="7" width="17" height="10" rx="2" />
+    <path d="M21.5 10.5v3M11.5 9 9 12h4l-2.5 3" />
+  </Icon>
+);
+export const TvIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.5" y="6" width="19" height="13" rx="2" />
+    <path d="m8 2.5 4 3.5 4-3.5" />
+  </Icon>
+);
+export const DockIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="12" width="18" height="7" rx="2" />
+    <path d="M6.5 15.5h.01M10 15.5h8M9 12V6.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6.5V12" />
+  </Icon>
+);
+export const CableIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0z" />
+    <path d="M12 16v2.5a2.5 2.5 0 0 1-2.5 2.5H8" />
+  </Icon>
+);
+export const WatchIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="6" y="6" width="12" height="12" rx="3" />
+    <path d="M9 6l.5-3.5h5L15 6M9 18l.5 3.5h5L15 18M12 9.5V12l1.5 1.5" />
+  </Icon>
+);
+export const BagIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.5" y="7" width="19" height="13" rx="2" />
+    <path d="M8.5 7V5a1.5 1.5 0 0 1 1.5-1.5h4A1.5 1.5 0 0 1 15.5 5v2M2.5 12.5h19M11 12.5v2h2v-2" />
+  </Icon>
+);
+export const CpuIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="5.5" y="5.5" width="13" height="13" rx="2" />
+    <rect x="9" y="9" width="6" height="6" rx="1" />
+    <path d="M9 2.5v3M15 2.5v3M9 18.5v3M15 18.5v3M2.5 9h3M2.5 15h3M18.5 9h3M18.5 15h3" />
   </Icon>
 );
 export const UsersIcon = (p: IconProps) => (
@@ -145,6 +259,11 @@ export const InfoIcon = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="9" />
     <path d="M12 11v5M12 8h.01" />
+  </Icon>
+);
+export const FilterIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 6h16M7 12h10M10 18h4" />
   </Icon>
 );
 export const XIcon = (p: IconProps) => (

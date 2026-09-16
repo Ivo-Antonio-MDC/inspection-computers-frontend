@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Alert, Card, DataTable, EmptyState, FilterBar, PageHeader, Pagination, TableSkeleton } from "@/components/common/ui-kit";
-import { SearchInput, Select } from "@/components/form/fields";
+import { FilterToolbar, yesNo, type FilterDef } from "@/components/common/FilterToolbar";
+import { Alert, Card, DataTable, EmptyState, PageHeader, Pagination, TableSkeleton } from "@/components/common/ui-kit";
 import { DownloadIcon, LaptopIcon } from "@/components/icons";
 import EquipmentTypeIcon from "@/components/records/EquipmentTypeIcon";
 import Badge, { ConditionBadge } from "@/components/ui/Badge";
@@ -35,11 +35,6 @@ const DEFAULTS = {
   needsReplacement: "",
 };
 
-const YES_NO = (yes: string, no: string) => [
-  { value: "true", label: yes },
-  { value: "false", label: no },
-];
-
 function EquipmentList() {
   const { inspectionId, locations, departments } = useAppStore();
   const { filters, page, update, reset, activeCount } = useUrlFilters(DEFAULTS);
@@ -65,6 +60,20 @@ function EquipmentList() {
       cancelled = true;
     };
   }, [filters, page, inspectionId]);
+
+  const filterDefs: FilterDef[] = [
+    { key: "type", label: "Tipo", group: "Equipamento", options: EQUIPMENT_TYPE_ORDER.map((t) => ({ value: t, label: EQUIPMENT_TYPE_LABELS[t] })) },
+    { key: "condition", label: "Estado físico", group: "Equipamento", options: CONDITION_OPTIONS },
+    { key: "locationId", label: "Localização", group: "Colaborador", allLabel: "Todas", options: locations.map((l) => ({ value: l.id, label: l.name })) },
+    { key: "departmentId", label: "Departamento", group: "Colaborador", options: departments.map((d) => ({ value: d.id, label: d.name })) },
+    { key: "recordStatus", label: "Estado do formulário", group: "Colaborador", options: Object.entries(RECORD_STATUS_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "problem", label: "Problema reportado", group: "Problemas e acções", allLabel: "Qualquer", options: PROBLEM_OPTIONS },
+    { key: "hasProblems", label: "Problemas", group: "Problemas e acções", kind: "choice", options: yesNo("Com problemas", "Sem problemas") },
+    { key: "needsMaintenance", label: "Manutenção", group: "Problemas e acções", kind: "choice", options: yesNo("Necessita manutenção", "Não necessita manutenção") },
+    { key: "needsReplacement", label: "Substituição", group: "Problemas e acções", kind: "choice", options: yesNo("Necessita substituição", "Não necessita substituição") },
+    { key: "missingSerial", label: "Nº de série", group: "Qualidade dos dados", kind: "choice", options: yesNo("Sem nº de série", "Com nº de série") },
+    { key: "incomplete", label: "Completude", group: "Qualidade dos dados", kind: "choice", options: yesNo("Dados incompletos", "Dados completos") },
+  ];
 
   const exportFile = async (format: "xlsx" | "csv") => {
     if (!inspectionId) return;
@@ -98,25 +107,14 @@ function EquipmentList() {
       />
 
       <Card bodyClassName="p-0 sm:p-0">
-        <FilterBar>
-          <SearchInput value={search} onChange={setSearch} placeholder="Nº série, marca, modelo, hostname, colaborador…" />
-          <Select value={filters.type} onChange={(e) => update({ type: e.target.value })} placeholder="Todos os tipos" options={EQUIPMENT_TYPE_ORDER.map((t) => ({ value: t, label: EQUIPMENT_TYPE_LABELS[t] }))} aria-label="Tipo" />
-          <Select value={filters.condition} onChange={(e) => update({ condition: e.target.value })} placeholder="Todos os estados" options={CONDITION_OPTIONS} aria-label="Estado físico" />
-          <Select value={filters.locationId} onChange={(e) => update({ locationId: e.target.value })} placeholder="Todas as localizações" options={locations.map((l) => ({ value: l.id, label: l.name }))} aria-label="Localização" />
-          <Select value={filters.departmentId} onChange={(e) => update({ departmentId: e.target.value })} placeholder="Todos os departamentos" options={departments.map((d) => ({ value: d.id, label: d.name }))} aria-label="Departamento" />
-          <Select value={filters.problem} onChange={(e) => update({ problem: e.target.value })} placeholder="Qualquer problema" options={PROBLEM_OPTIONS} aria-label="Problema" />
-          <Select value={filters.hasProblems} onChange={(e) => update({ hasProblems: e.target.value })} placeholder="Problemas: todos" options={YES_NO("Com problemas", "Sem problemas")} aria-label="Com problemas" />
-          <Select value={filters.missingSerial} onChange={(e) => update({ missingSerial: e.target.value })} placeholder="Nº de série: todos" options={YES_NO("Sem nº de série", "Com nº de série")} aria-label="Número de série" />
-          <Select value={filters.incomplete} onChange={(e) => update({ incomplete: e.target.value })} placeholder="Completude: todos" options={YES_NO("Dados incompletos", "Dados completos")} aria-label="Completude" />
-          <Select value={filters.needsMaintenance} onChange={(e) => update({ needsMaintenance: e.target.value })} placeholder="Manutenção: todos" options={YES_NO("Necessita manutenção", "Não necessita")} aria-label="Manutenção" />
-          <Select value={filters.needsReplacement} onChange={(e) => update({ needsReplacement: e.target.value })} placeholder="Substituição: todos" options={YES_NO("Necessita substituição", "Não necessita")} aria-label="Substituição" />
-          <Select value={filters.recordStatus} onChange={(e) => update({ recordStatus: e.target.value })} placeholder="Formulário: todos" options={Object.entries(RECORD_STATUS_LABELS).map(([value, label]) => ({ value, label }))} aria-label="Estado do formulário" />
-          {activeCount > 0 && (
-            <Button variant="ghost" onClick={() => { setSearch(""); reset(); }}>
-              Limpar filtros ({activeCount})
-            </Button>
-          )}
-        </FilterBar>
+        <FilterToolbar
+          search={{ value: search, onChange: setSearch, placeholder: "Nº série, marca, modelo, hostname, colaborador…" }}
+          filters={filterDefs}
+          values={filters}
+          onChange={update}
+          onReset={() => { setSearch(""); reset(); }}
+          summary={data && <><span className="font-semibold text-gray-800 dark:text-white">{data.total}</span> equipamento(s)</>}
+        />
 
         {error ? (
           <div className="p-5"><Alert tone="error">{error}</Alert></div>
@@ -126,9 +124,6 @@ function EquipmentList() {
           <EmptyState icon={<LaptopIcon />} title={activeCount ? "Nenhum equipamento corresponde aos filtros" : "Ainda não existem equipamentos registados"} />
         ) : (
           <>
-            <div className="px-5 pt-3 text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-semibold text-gray-800 dark:text-white">{data.total}</span> equipamento(s)
-            </div>
             <DataTable>
               <thead>
                 <tr>
@@ -149,7 +144,7 @@ function EquipmentList() {
                       <td>
                         <div className="flex items-center gap-3">
                           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300">
-                            <EquipmentTypeIcon type={e.type} size={18} />
+                            <EquipmentTypeIcon type={e.type} description={e.otherDescription} size={18} />
                           </span>
                           <div className="min-w-0">
                             <p className="font-medium text-gray-800 dark:text-white/90">{[e.brand, e.model].filter(Boolean).join(" ") || "—"}</p>

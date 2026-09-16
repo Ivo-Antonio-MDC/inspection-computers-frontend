@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { Fragment, Suspense, useEffect, useState } from "react";
-import { Alert, Card, DataTable, EmptyState, FilterBar, PageHeader, Pagination, TableSkeleton } from "@/components/common/ui-kit";
-import { Select } from "@/components/form/fields";
+import { FilterToolbar } from "@/components/common/FilterToolbar";
+import { Alert, Card, DataTable, EmptyState, PageHeader, Pagination, TableSkeleton } from "@/components/common/ui-kit";
 import { ChevronDownIcon, HistoryIcon } from "@/components/icons";
 import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
 import { apiErrorMessage } from "@/lib/api";
 import { AUDIT_ACTION_LABELS } from "@/lib/constants";
 import { cn, formatDateTime } from "@/lib/format";
@@ -23,6 +22,7 @@ const ENTITY_LABELS: Record<string, string> = {
   user: "Utilizador",
   location: "Localização",
   department: "Departamento",
+  equipment_category: "Catálogo de equipamentos",
   inspection: "Inspecção",
 };
 
@@ -59,12 +59,16 @@ function AuditList() {
         description="Registo das submissões, alterações, validações, exportações e acessos."
       />
       <Card bodyClassName="p-0 sm:p-0">
-        <FilterBar>
-          <Select value={filters.action} onChange={(e) => update({ action: e.target.value })} placeholder="Todas as acções" options={Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => ({ value, label }))} aria-label="Acção" />
-          <Select value={filters.entity} onChange={(e) => update({ entity: e.target.value })} placeholder="Todas as entidades" options={Object.entries(ENTITY_LABELS).map(([value, label]) => ({ value, label }))} aria-label="Entidade" />
-          <Select value={filters.userId} onChange={(e) => update({ userId: e.target.value })} placeholder="Todos os utilizadores" options={users.map((u) => ({ value: u.id, label: u.name }))} aria-label="Utilizador" />
-          {activeCount > 0 && <Button variant="ghost" onClick={reset}>Limpar filtros ({activeCount})</Button>}
-        </FilterBar>
+        <FilterToolbar
+          filters={[
+            { key: "action", label: "Acção", allLabel: "Todas", options: Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => ({ value, label })) },
+            { key: "entity", label: "Entidade", allLabel: "Todas", options: Object.entries(ENTITY_LABELS).map(([value, label]) => ({ value, label })) },
+            { key: "userId", label: "Utilizador", options: users.map((u) => ({ value: u.id, label: u.name })) },
+          ]}
+          values={filters}
+          onChange={update}
+          onReset={reset}
+        />
         {error ? (
           <div className="p-5"><Alert tone="error">{error}</Alert></div>
         ) : !data ? (

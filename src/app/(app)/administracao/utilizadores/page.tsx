@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Alert, Card, DataTable, PageHeader } from "@/components/common/ui-kit";
 import { Input, Select } from "@/components/form/fields";
-import { EditIcon, LockIcon, PlusIcon } from "@/components/icons";
+import { EditIcon, LockIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Modal from "@/components/ui/Modal";
+import Modal, { ConfirmDialog } from "@/components/ui/Modal";
 import { apiErrorMessage } from "@/lib/api";
 import { ROLE_LABELS } from "@/lib/constants";
 import { formatDateTime, initials } from "@/lib/format";
@@ -30,6 +30,7 @@ export default function UsersAdminPage() {
   const [modal, setModal] = useState<{ open: boolean; edit?: TeamUser }>({ open: false });
   const [form, setForm] = useState({ name: "", email: "", role: "tecnico" as UserRole, password: "", isActive: true });
   const [reset, setReset] = useState<{ user: TeamUser; password: string } | null>(null);
+  const [toDelete, setToDelete] = useState<TeamUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -82,6 +83,22 @@ export default function UsersAdminPage() {
       setReset(null);
     } catch (err) {
       toast.error(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doDelete = async () => {
+    if (!toDelete) return;
+    setSaving(true);
+    try {
+      await UserService.remove(toDelete.id);
+      toast.success(`Utilizador ${toDelete.name} eliminado`);
+      setToDelete(null);
+      await load();
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+      setToDelete(null);
     } finally {
       setSaving(false);
     }
@@ -142,6 +159,11 @@ export default function UsersAdminPage() {
                       {u.id !== me.id && (
                         <button onClick={() => setReset({ user: u, password: tempPassword() })} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5" aria-label={`Redefinir palavra-passe de ${u.name}`} title="Redefinir palavra-passe">
                           <LockIcon size={18} />
+                        </button>
+                      )}
+                      {u.id !== me.id && (
+                        <button onClick={() => setToDelete(u)} className="rounded-lg p-2 text-gray-500 hover:bg-error-50 hover:text-error-600 dark:hover:bg-error-500/10" aria-label={`Eliminar ${u.name}`} title="Eliminar">
+                          <TrashIcon size={18} />
                         </button>
                       )}
                     </div>
@@ -210,6 +232,22 @@ export default function UsersAdminPage() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!toDelete}
+        title="Eliminar utilizador"
+        message={
+          <>
+            Eliminar <strong>{toDelete?.name}</strong> ({toDelete?.email})? A conta deixa de existir e as sessões activas são terminadas.
+            Se o utilizador já registou formulários, não pode ser eliminado — desactive a conta em vez disso.
+          </>
+        }
+        confirmLabel="Eliminar"
+        danger
+        loading={saving}
+        onConfirm={doDelete}
+        onClose={() => setToDelete(null)}
+      />
     </>
   );
 }

@@ -4,10 +4,10 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { Alert, Card, DataTable, EmptyState, PageHeader } from "@/components/common/ui-kit";
 import { Input, Select, TextArea } from "@/components/form/fields";
-import { CalendarIcon, EditIcon, PlusIcon } from "@/components/icons";
+import { CalendarIcon, EditIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Modal from "@/components/ui/Modal";
+import Modal, { ConfirmDialog } from "@/components/ui/Modal";
 import { apiErrorMessage } from "@/lib/api";
 import { INSPECTION_STATUS_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
@@ -25,6 +25,7 @@ export default function InspectionsAdminPage() {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toDelete, setToDelete] = useState<Inspection | null>(null);
 
   const open = (edit?: Inspection) => {
     setError(null);
@@ -59,6 +60,25 @@ export default function InspectionsAdminPage() {
       setError(apiErrorMessage(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const doDelete = async () => {
+    if (!toDelete) return;
+    setSaving(true);
+    try {
+      await InspectionService.remove(toDelete.id);
+      await reloadLookups();
+      if (toDelete.id === inspectionId) {
+        const next = useAppStore.getState().inspections[0];
+        if (next) selectInspection(next.id);
+      }
+      toast.success(`Inspecção "${toDelete.name}" eliminada`);
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+      setToDelete(null);
     }
   };
 
@@ -110,6 +130,17 @@ export default function InspectionsAdminPage() {
                           <EditIcon size={18} />
                         </button>
                       )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => setToDelete(i)}
+                          disabled={(i.recordCount ?? 0) > 0}
+                          className="rounded-lg p-2 text-gray-500 hover:bg-error-50 hover:text-error-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:hover:bg-error-500/10"
+                          aria-label={`Eliminar ${i.name}`}
+                          title={(i.recordCount ?? 0) > 0 ? "Não é possível eliminar: a inspecção já tem formulários" : "Eliminar"}
+                        >
+                          <TrashIcon size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -142,6 +173,22 @@ export default function InspectionsAdminPage() {
           {form.status === "concluida" && <Alert tone="warning">Numa inspecção concluída apenas o administrador pode alterar formulários.</Alert>}
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!toDelete}
+        title="Eliminar inspecção"
+        message={
+          <>
+            Eliminar a inspecção <strong>{toDelete?.name}</strong>? Esta acção não pode ser anulada.
+            {toDelete?.id === inspectionId && " É a inspecção seleccionada — será seleccionada outra automaticamente."}
+          </>
+        }
+        confirmLabel="Eliminar"
+        danger
+        loading={saving}
+        onConfirm={doDelete}
+        onClose={() => setToDelete(null)}
+      />
     </>
   );
 }
